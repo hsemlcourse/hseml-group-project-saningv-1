@@ -1,0 +1,4 @@
+{
+  "selected_by": "best validation f1_spam",
+  "model": "tfidf_linearsvc_text_only"
+}

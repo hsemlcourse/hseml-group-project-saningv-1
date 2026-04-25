@@ -1,0 +1,9 @@
+{
+  "rows":5158,
+  "columns":15,
+  "duplicates_after_cleaning":0,
+  "class_counts":{
+    "ham":4516,
+    "spam":642
+  }
+}
