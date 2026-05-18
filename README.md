@@ -2,42 +2,44 @@
 
 **Задача:** бинарная классификация SMS-сообщений: `spam` или `ham`.
 
+**Студент:** Gleb Sanin
+
 **Источник данных:** SMS Spam Collection, опубликованный UCI и продублированный на Kaggle:  
 https://www.kaggle.com/datasets/uciml/sms-spam-collection-dataset
 
-## Что сделано к CP1
+## Что внутри
 
-На CP1 я собрал воспроизводимый baseline-пайплайн для классической задачи фильтрации SMS-спама: загрузка сырого корпуса, очистка, ручные признаки поверх текста, стратифицированный `train/val/test` split и несколько первых моделей.
+В репозитории есть полный локальный пайплайн: загрузка и очистка данных, обучение модели, API на FastAPI и простой Streamlit-интерфейс для ручной проверки SMS.
 
-У датасета есть важное ограничение: в сыром виде это не большая табличная витрина, а компактный текстовый корпус. После удаления дублей остаётся 5 158 сообщений: 4 516 обычных и 642 спам-сообщения. Формально это меньше порога в 10 000 строк и исходно выглядит как две колонки, но для текстовой классификации это не означает “два признака”. Текст разворачивается в высокоразмерное пространство через `CountVectorizer`/`TfidfVectorizer`, а поверх него добавлены интерпретируемые признаки, которые хорошо описывают механику SMS-спама: длина сообщения, число слов, цифр, телефонов, валютных символов, uppercase-доля, пунктуация и CTA-слова вроде `call`, `free`, `win`, `claim`.
-
-Проект и датасет согласованы, поэтому на CP1 я явно фиксирую это ограничение и компенсирую его двумя вещами: аккуратной валидацией без leakage и признаками, которые можно объяснить без магии модели.
+После удаления точных дублей в датасете остаётся 5 158 сообщений, из них 642 относятся к spam. Датасет небольшой, это ограничение было согласовано. В модели используется не только сырой текст, но и TF-IDF признаки вместе с простыми числовыми признаками сообщения.
 
 ## Структура
 
 ```text
 .
+├── app
+│   ├── api.py                  # FastAPI: /health и /predict
+│   └── streamlit_app.py        # UI для ручного ввода SMS
 ├── data
-│   ├── raw/                         # локальный архив sms_spam_collection.zip, не коммитится
-│   └── processed/                   # обработанный CSV, не коммитится
-├── models/                          # обученная модель, не коммитится
+│   ├── raw/                    # локальный архив, не коммитится
+│   └── processed/              # обработанный CSV, не коммитится
+├── models/                     # локальные .joblib модели, не коммитятся
 ├── report
-│   ├── images/                      # графики EDA
-│   ├── cp1_data_summary.json
+│   ├── images/                 # графики и изображения деплоя
 │   ├── cp1_results.csv
 │   └── report.md
 ├── src
-│   ├── config.py                    # пути и seed
-│   ├── data.py                      # загрузка и очистка данных
-│   ├── eda.py                       # графики и summary для отчёта
-│   ├── features.py                  # ручные текстовые признаки
-│   ├── split.py                     # стратифицированный split
-│   └── train_baseline.py            # первые модели и метрики
-├── tests/test.py
+│   ├── data.py
+│   ├── deployment_artifacts.py
+│   ├── features.py
+│   ├── model_service.py
+│   ├── split.py
+│   └── train_baseline.py
+├── tests
 └── requirements.txt
 ```
 
-## Воспроизведение
+## Быстрый старт
 
 ```bash
 python3 -m venv .venv
@@ -46,31 +48,59 @@ pip install -r requirements.txt
 
 python -m src.download_data
 python -m src.data
-python -m src.eda
 python -m src.train_baseline
-
-python -m pytest tests/test.py -q
-ruff check src/ --line-length 120
+python -m src.deployment_artifacts
+python -m src.build_report_pdf
 ```
 
-Сырой архив лежит локально в `data/raw/sms_spam_collection.zip`, но не коммитится. Команда `python -m src.download_data` скачивает его из UCI. Ручной вариант:
+## API
 
 ```bash
-curl -L -sS https://archive.ics.uci.edu/static/public/228/sms+spam+collection.zip -o data/raw/sms_spam_collection.zip
+uvicorn app.api:app --host 127.0.0.1 --port 8000
 ```
 
-## Метрика
+Проверка:
 
-Основная метрика для CP1 - `F1` по классу `spam`. В этой задаче `accuracy` легко выглядит хорошо из-за дисбаланса классов, но для фильтра спама важен баланс между двумя ошибками: пропустить спам и ошибочно пометить нормальное сообщение как спам. Поэтому рядом также считаются `precision_spam` и `recall_spam`.
+```bash
+curl http://127.0.0.1:8000/health
+curl -X POST http://127.0.0.1:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"message":"URGENT! You won a free prize. Call now to claim cash."}'
+```
 
-## Результаты CP1
+Пример ответа:
 
-| Модель | Split | Accuracy | Precision spam | Recall spam | F1 spam |
-|---|---:|---:|---:|---:|---:|
-| CountVectorizer + MultinomialNB | test | 0.979 | 0.966 | 0.866 | 0.913 |
-| TF-IDF + LogisticRegression | test | 0.961 | 0.986 | 0.701 | 0.819 |
-| TF-IDF + LinearSVC | val | 0.988 | 1.000 | 0.906 | 0.951 |
-| TF-IDF + LinearSVC | test | 0.978 | 0.955 | 0.866 | 0.908 |
-| TF-IDF + ручные признаки + LogisticRegression | test | 0.983 | 1.000 | 0.866 | 0.928 |
+```json
+{
+  "label": "spam",
+  "target": 1,
+  "spam_score": 0.9902
+}
+```
 
-На validation лучшая модель - `TF-IDF + LinearSVC`. На test сильнее выглядит `TF-IDF + ручные признаки + LogisticRegression`, но для выбора модели я пока ориентируюсь на validation, чтобы не подгонять решение под test. В CP2 логично расширить сетку экспериментов, добавить кросс-валидацию и проверить, стабилен ли выигрыш ручных признаков.
+## Интерфейс
+
+```bash
+streamlit run app/streamlit_app.py --server.address 127.0.0.1 --server.port 8501
+```
+
+После запуска интерфейс доступен по адресу:
+
+```text
+http://127.0.0.1:8501
+```
+
+## Docker
+
+```bash
+docker build -t sms-spam-detector .
+docker run --rm -p 8000:8000 sms-spam-detector
+```
+
+## Проверки
+
+```bash
+pytest -q
+ruff check src app tests --line-length 120
+flake8 src app tests --max-line-length=120
+```

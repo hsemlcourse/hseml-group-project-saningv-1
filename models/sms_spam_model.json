@@ -1,0 +1,5 @@
+{
+  "model": "tfidf_logreg_with_manual_features",
+  "purpose": "cp3 deployment",
+  "selected_reason": "strong held-out F1 and native probability estimates for API/UI"
+}

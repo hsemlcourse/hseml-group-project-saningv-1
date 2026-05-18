@@ -7,7 +7,7 @@ URL_RE = re.compile(r"(?:https?://|www\.|[a-z0-9.-]+\.[a-z]{2,})", flags=re.IGNO
 PHONE_RE = re.compile(r"(?:\+?\d[\d\s().-]{6,}\d)")
 CURRENCY_RE = re.compile(r"[$£€]|(?:\b(?:usd|eur|gbp|pounds?|dollars?)\b)", flags=re.IGNORECASE)
 CTA_RE = re.compile(
-    r"\b(call|text|txt|reply|claim|win|winner|free|urgent|prize|cash|bonus|offer|stop)\b",
+    r"\b(?:call|text|txt|reply|claim|win|winner|free|urgent|prize|cash|bonus|offer|stop)\b",
     flags=re.IGNORECASE,
 )
 
@@ -28,6 +28,6 @@ def add_text_features(df: pd.DataFrame) -> pd.DataFrame:
     result["has_url"] = message.str.contains(URL_RE).astype(int)
     result["has_phone"] = message.str.contains(PHONE_RE).astype(int)
     result["has_currency"] = message.str.contains(CURRENCY_RE).astype(int)
-    result["cta_word_count"] = message.str.count(CTA_RE)
+    result["cta_word_count"] = message.apply(lambda text: len(CTA_RE.findall(text)))
 
     return result
