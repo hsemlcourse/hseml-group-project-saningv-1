@@ -123,7 +123,9 @@ Streamlit:
 - `report/images/api_predict_example.png`;
 - `report/images/streamlit_interface_example.png`.
 
-Демонстрация воспроизводится локально: API запускается командой `uvicorn app.api:app --host 127.0.0.1 --port 8000`, интерфейс - командой `streamlit run app/streamlit_app.py --server.address 127.0.0.1 --server.port 8501`. Скриншоты работы сохранены в `report/images/`.
+Демонстрация: https://disk.yandex.ru/i/pJhz8z5Rq__DAw
+
+Локально API запускается командой `uvicorn app.api:app --host 127.0.0.1 --port 8000`, интерфейс - командой `streamlit run app/streamlit_app.py --server.address 127.0.0.1 --server.port 8501`. Скриншоты работы сохранены в `report/images/`.
 
 ## 8. Заключение и выводы
 
